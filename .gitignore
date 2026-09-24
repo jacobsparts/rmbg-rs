@@ -1,0 +1,5 @@
+/target
+
+# Not tracked on purpose: this engine depends on lightgpu by git, and the family
+# builds against the toolkit as it stands rather than a frozen revision.
+Cargo.lock

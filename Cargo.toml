@@ -1,0 +1,41 @@
+[package]
+name = "rmbg"
+version = "0.1.0"
+edition = "2021"
+description = "Standalone RMBG-2.0 (BiRefNet) background-removal inference engine"
+license = "MIT"
+repository = "https://github.com/jacobsparts/rmbg-rs"
+readme = "README.md"
+
+[[bin]]
+name = "rmbg"
+path = "src/main.rs"
+
+[features]
+# The default build is the single binary that supports both backends:
+# `--device cpu` is pure Rust, `--device gpu` uses the embedded CUDA fatbin.
+# Building it needs nvcc (set NVCC=/path/to/nvcc if it is not on PATH).
+default = ["cuda"]
+# GPU backend: compiles cuda/kernels.cu with nvcc and embeds the fatbin.
+# `cargo build --release --no-default-features` produces the pure-Rust
+# CPU-only binary instead (1.05 MiB, no CUDA toolchain needed).
+cuda = []
+
+[dependencies]
+png = "0.17"
+rayon = "1"
+libc = "0.2"
+# The driver layer (dlopen'd CUDA driver API), the module/launch/buffer
+# plumbing and the shared kernel set now come from the toolkit; this crate
+# keeps only its model graph and its f32-facing surface.
+lightgpu = { git = "https://github.com/jacobsparts/lightgpu.git" }
+
+[build-dependencies]
+# Compiles the subset of the toolkit's kernels this engine calls.
+lightgpu-build = { git = "https://github.com/jacobsparts/lightgpu.git", package = "lightgpu-build" }
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 4
+panic = "abort"
