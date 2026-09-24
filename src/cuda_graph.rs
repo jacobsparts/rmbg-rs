@@ -185,7 +185,15 @@ fn grid_for(n: usize) -> u32 { ((n + THREADS as usize - 1) / THREADS as usize) a
 
 impl CudaModel {
     /// The module a kernel lives in: this engine's own family first, the
-    /// toolkit's second - the same order the old `Cuda::func` lookup used.
+    /// toolkit's second.
+    ///
+    /// The lookup is by CONTAINMENT, not by the compile-time lists, and that is
+    /// deliberate for the two kernels that just moved: they are in the toolkit
+    /// fatbin now, so `swin.has` is false for them, but a build of an older
+    /// `swin.cu` that still defined them would resolve to that copy instead of
+    /// launching a missing symbol. Both modules are probed once at startup
+    /// (`KERNEL_NAMES`), so a genuinely absent name still fails there rather
+    /// than in the middle of a forward pass.
     fn module_of(&self, name: &str) -> Result<&lightgpu::vm::Module, String> {
         if self.cu.swin.has(name) {
             Ok(&self.cu.swin)
@@ -426,15 +434,19 @@ impl CudaModel {
     pub fn global_avg_pool(&self, src: &DTensor) -> Result<DTensor, String> {
         let dst = self.dt(src.c, 1, 1);
         let hw = src.hw();
-        let threads = 256u32;
-        let shared = threads * 4;
         
         let mut aa = Args::new();
         aa.ptr(src.buf.ptr);
         aa.ptr(dst.buf.ptr);
         aa.i32(src.c as i32);
         aa.i32(hw as i32);
-        aa.launch(self.module_of("lg_channel_mean")?, "lg_channel_mean", Launch::new((src.c as u32, 1, 1), (threads, 1, 1)).shared(shared))?;
+        // No `.shared(...)`: the toolkit's lg_channel_mean reserves its own
+        // static 1024-slot scratch, sized for the largest legal blockDim, so a
+        // caller never has to know what the reduction needs. This call used to
+        // pass `threads * 4` bytes of dynamic shared memory, which the toolkit
+        // version (correctly) ignores - passing it would not fail, it would just
+        // be dead space, so the argument is gone rather than left in place.
+        aa.launch(self.module_of("lg_channel_mean")?, "lg_channel_mean", Launch::new((src.c as u32, 1, 1), (THREADS, 1, 1)))?;
         Ok(dst)
     }
 

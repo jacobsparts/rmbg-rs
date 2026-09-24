@@ -1,11 +1,13 @@
 //! Compiles this engine's kernels into TWO MODULES.
 //!
 //! `cuda/swin.cu` is this project's own kernel family - the vision ops (Swin
-//! window assembly, token shuffles, deformable convolution, resampling, NCHW
-//! channel ops, token-layout attention) that no other engine calls. The rest
-//! are generic ops taken from the shared `lightgpu` toolkit. Each file compiles
-//! to its own fatbin with its own `--entries` list, and `src/cuda.rs` loads both
-//! as separate modules, so neither file can shadow a name in the other.
+//! window assembly, token shuffles, deformable convolution, resampling,
+//! token-layout attention) that no other engine calls. The rest are generic ops
+//! taken from the shared `lightgpu` toolkit, which now also carries the NCHW
+//! channel affine and the per-channel mean: they were defined here until the
+//! toolkit advertised them, which is backwards. Each file compiles to its own
+//! fatbin with its own `--entries` list, and `src/cuda.rs` loads both as
+//! separate modules, so neither file can shadow a name in the other.
 //!
 //! Both lists are checked against the file they are compiled from before nvcc
 //! runs, so a typo or a name moved to the wrong file fails the build rather
@@ -21,6 +23,10 @@ const TOOLKIT_KERNELS: &[&str] = &[
     "lg_gelu_erf",
     // norm
     "lg_layer_norm",
+    // NCHW channel ops: the folded-BatchNorm affine and the global average pool.
+    // Both were defined in cuda/swin.cu and are toolkit kernels now.
+    "lg_channel_affine",
+    "lg_channel_mean",
     // convolution / linear
     "lg_conv1x1",
     "lg_conv_kxk",
@@ -34,11 +40,9 @@ const TOOLKIT_KERNELS: &[&str] = &[
 const SWIN_KERNELS: &[&str] = &[
     // elementwise / activation specific to the vision path
     "lg_double_sigmoid",
-    "lg_channel_affine",
     "lg_mul_broadcast",
     // channel bookkeeping
     "lg_channel_copy",
-    "lg_channel_mean",
     // layout / token bookkeeping
     "lg_nchw_to_tokens",
     "lg_tokens_to_nchw",

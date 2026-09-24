@@ -2,8 +2,8 @@
 // shuffles, deformable convolution, resampling, NCHW channel ops, token-layout
 // attention) that only this engine calls.
 //
-// These 21 kernels used to live in the shared `lightgpu` toolkit, where they sat
-// next to an LLM/q8 kernel set with which they share nothing but two generic ops.
+// These 19 kernels used to live in the shared `lightgpu` toolkit, where they sat
+// next to an LLM/q8 kernel set with which they share almost nothing.
 // They are compiled as a SECOND MODULE (see build.rs / fatbin_modules) and
 // loaded alongside the toolkit subset, so a name here cannot collide with a
 // toolkit kernel and vice versa.
@@ -17,9 +17,25 @@
 //   * reduction scratch is sized for the largest legal blockDim so no caller has
 //     to pass a shared-memory size.
 //
-// The two `LA_DEVI` helpers below (la_bilinear_zero, la_window_index) came along
+// The two `LA_DEVI` helpers below (la_bilinear_zero, la_window_index) are here
 // because their only callers are in this file; la_erf stayed behind with
-// lg_gelu_erf. Nothing here uses anything else from the toolkit's file.
+// lg_gelu_erf, and `lg_channel_affine`/`lg_channel_mean` have gone back to the
+// toolkit, where the ops table advertised them all along.
+//
+// `la_bilinear_zero` is the one helper that is arguably engine-agnostic - it is
+// a plain bilinear sample with zero padding, torchvision's grid_sample rule -
+// and the answer is still that it stays HERE. It cannot be shared as a kernel,
+// because a device helper is inlined into its caller's translation unit and the
+// toolkit is compiled as its own source file that no consumer includes; sharing
+// it would mean either a toolkit header for device code (a new mechanism, and
+// the toolkit's whole contract is "one .cu, looked up by name") or duplicating
+// the inside of `lg_deform_conv`, which is a swin-specific op with a
+// torchvision-compatible offset/mask layout. See CONVENTIONS.md in the toolkit
+// for the recorded decision.
+//
+// Because the affine and the mean are now the toolkit's, their comments moved
+// with them; what remains below is the token/window/deform machinery that no
+// other engine in this family has.
 
 #include <cuda_runtime.h>
 #include <cstdint>
@@ -38,25 +54,6 @@ extern "C" __global__ void lg_double_sigmoid(
     const int i = blockIdx.x * blockDim.x + threadIdx.x;
     if (i >= n) return;
     y[i] = 2.0f / (1.0f + __expf(-x[i]));
-}
-
-// Per-CHANNEL affine over NCHW: out[c][p] = in[c][p] * scale[c] + shift[c],
-// p running over the contiguous hw of each channel. This is the op an NCHW
-// engine needs after folding a BatchNorm, and it is NOT expressible with
-// lg_row_affine (see the correction there). Either parameter may be null for a
-// pure scale or a pure bias; `in` and `out` may be the same buffer.
-extern "C" __global__ void lg_channel_affine(
-    const float *__restrict__ in, float *__restrict__ out,
-    const float *__restrict__ scale, const float *__restrict__ shift,
-    int c, int hw)
-{
-    const long idx = (long)blockIdx.x * blockDim.x + threadIdx.x;
-    const long total = (long)c * hw;
-    if (idx >= total) return;
-    const int ch = (int)(idx / hw);
-    float v = in[idx] * (scale ? scale[ch] : 1.0f);
-    if (shift) v += shift[ch];
-    out[idx] = v;
 }
 
 // Copy with a channel offset: dst[dst_c0 + c][p] = src[c][p]  (NCHW concat)
@@ -118,25 +115,6 @@ extern "C" __global__ void lg_softmax_rows(float *__restrict__ w, int n, int row
     const float inv = 1.0f / sh[0];
     __syncthreads();
     for (int i = t; i < n; i += blockDim.x) r[i] *= inv;
-}
-
-// Mean over hw per channel: out[c] = mean(x[c])  (left-to-right summation order,
-// matching the CPU twin).
-extern "C" __global__ void lg_channel_mean(
-    const float *__restrict__ x, float *__restrict__ out, int c, int hw)
-{
-    extern __shared__ float sh[];
-    const int ch = blockIdx.x;
-    const float *p = x + (size_t)ch * hw;
-    float s = 0.0f;
-    for (int i = threadIdx.x; i < hw; i += blockDim.x) s += p[i];
-    sh[threadIdx.x] = s;
-    __syncthreads();
-    for (int st = blockDim.x >> 1; st > 0; st >>= 1) {
-        if (threadIdx.x < st) sh[threadIdx.x] += sh[threadIdx.x + st];
-        __syncthreads();
-    }
-    out[ch] = sh[0] / (float)hw;
 }
 
 // ===========================================================================

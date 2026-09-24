@@ -120,24 +120,27 @@ cargo build --release --no-default-features  # CPU-only, 1.1 MiB, no nvcc
 Set `NVCC=/path/to/nvcc` if it is not on `PATH`. The GPU build compiles the
 kernels this engine actually calls, in **two modules**:
 
-* `cuda/swin.cu` — this project's own kernel family: the 21 vision-model ops
-  (Swin window assembly, token shuffles, deformable convolution, resampling,
-  NCHW channel ops and the token-layout attention). They used to sit in the
-  shared toolkit, where they shared a file with an LLM/q8 kernel set they have
-  almost nothing in common with.
-* the shared [`lightgpu`](https://github.com/jacobsparts/lightgpu) toolkit's `cuda/kernels.cu` — the 12
-  generic ops (elementwise, `layer_norm`, the convolution and linear family).
+* `cuda/swin.cu` — this project's own kernel family: the 19 vision-model ops
+  (Swin window assembly, token shuffles, deformable convolution, resampling and
+  the token-layout attention). They used to sit in the shared toolkit, where
+  they shared a file with an LLM/q8 kernel set they have almost nothing in
+  common with.
+* the shared [`lightgpu`](https://github.com/jacobsparts/lightgpu) toolkit's `cuda/kernels.cu` — the 14
+  generic ops (elementwise, `layer_norm`, the NCHW channel affine and mean, and
+  the convolution and linear family). The affine and the mean came back here:
+  this project had defined them, while the toolkit's own op table advertised
+  them as toolkit API.
 
 `build.rs` compiles each file to its own fatbin with its own `--entries` list
 (`lightgpu_build::fatbin_modules`) for sm_61, sm_75 and sm_80 plus PTX
-(`rmbg_toolkit.fatbin` 233,136 B + `rmbg_swin.fatbin` 390,184 B), and checks every
+(`rmbg_toolkit.fatbin` 338,464 B + `rmbg_swin.fatbin` 365,088 B), and checks every
 name against the file it is compiled from before `nvcc` runs - so a name in the
 wrong file fails the build rather than the first forward pass. `src/cuda.rs`
 loads both as separate modules: separate modules are separate namespaces, so
 neither file can shadow a name in the other, and a name that is in neither
 still fails eagerly at startup (every kernel is resolved at load). Selecting the
 33 kernels this engine calls, rather than the toolkit's whole set, is what keeps
-the embedded kernel bytes at 609 KB instead of 1.7 MB. The toolkit's build
+the embedded kernel bytes at 687 KB instead of 1.7 MB. The toolkit's build
 script exports its source path (`DEP_LIGHTGPU_KERNELS_CU`), so no path needs
 guessing. Nothing CUDA-related is needed to build or run the CPU-only binary.
 
