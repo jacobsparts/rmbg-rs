@@ -15,7 +15,9 @@ subject on a transparent background. No Python, no PyTorch, no ONNX runtime,
 no CUDA libraries to install — the binary is the whole runtime.
 
 * Both backends in one executable: a pure-Rust CPU path and a CUDA path with
-  hand-written kernels, selected at run time with `--device cpu|gpu`.
+  hand-written kernels. The GPU is used when the CUDA driver can be brought up
+  and the CPU engine otherwise, so one binary covers a machine with no NVIDIA
+  driver at all; `--device cpu|gpu` overrides that choice.
 * 1.9 MiB binary, statically linked except `libc`/`libm`/`libgcc_s`; the CUDA
   kernels are embedded as two fatbins (only the ones this engine calls) and
   `libcuda.so.1` is `dlopen`ed, so the CPU path works on machines with no
@@ -79,10 +81,15 @@ behind — no partial file, and any existing checkpoint untouched. It needs Pyth
 ## Usage
 
 ```sh
+rmbg --weights rmbg-2.0.safetensors -i input.png -o output.png            # gpu, or cpu if there is no driver
 rmbg --weights rmbg-2.0.safetensors -i input.png -o output.png --device gpu
 rmbg --weights rmbg-2.0.safetensors -i input.png -o output.png --device cpu
 rmbg --weights rmbg-2.0.safetensors -i input.png -o alpha.png --alpha-only   # mask only
 ```
+
+Naming the GPU (`--gpu` or `--device gpu`) is a demand: a driver that will not
+load is then an error rather than a fallback, so a caller that needs the GPU is
+never quietly given a 90-second CPU run instead.
 
 Input: PNG (RGB/RGBA/gray, 8- or 16-bit). Output: RGBA PNG (or a grayscale
 mask with `--alpha-only`). Images are resized to 1024×1024 for the network and
