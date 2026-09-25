@@ -11,9 +11,10 @@
 // The conventions are the toolkit's, because these were written to them:
 //   * `extern "C" __global__` with no engine structs, raw pointers plus scalars
 //     only, so the driver API can look them up by name;
-//   * no fast math, no flush-to-zero - every kernel has an arithmetic reference
-//     in this crate's CPU path (src/cuda_graph.rs) and the two must agree, which
-//     is what `--cuda-selftest` checks;
+//   * no fast math, no flush-to-zero - every kernel keeps the same order of
+//     operations as this crate's CPU path (src/cuda_graph.rs), so a difference
+//     between the backends is a real one, which is what `--cuda-selftest`
+//     checks;
 //   * reduction scratch is sized for the largest legal blockDim so no caller has
 //     to pass a shared-memory size.
 //

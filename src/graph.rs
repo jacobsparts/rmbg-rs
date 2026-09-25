@@ -1,5 +1,5 @@
 
-//! Full RMBG-2.0 forward graph (backbone + decoder), CPU reference path.
+//! Full RMBG-2.0 forward graph (backbone + decoder), the CPU path.
 use crate::deform::deform_conv2d;
 use crate::tensor::*;
 use crate::weights::Weights;
