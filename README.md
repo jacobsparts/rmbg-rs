@@ -1,7 +1,8 @@
 # rmbg-rs
 
 One of the [lightgpu inference engines](https://github.com/jacobsparts/lightgpu).
-The family also includes [locate-anything-rs](https://github.com/jacobsparts/locate-anything-rs),
+The family also includes [nafnet-rs](https://github.com/jacobsparts/nafnet-rs),
+[locate-anything-rs](https://github.com/jacobsparts/locate-anything-rs),
 [realesrgan-rs](https://github.com/jacobsparts/realesrgan-rs) and
 [lama-inpaint-rs](https://github.com/jacobsparts/lama-inpaint-rs); they share the
 [lightgpu toolkit](https://github.com/jacobsparts/lightgpu).
