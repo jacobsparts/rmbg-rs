@@ -4,8 +4,10 @@ One of the [lightgpu inference engines](https://github.com/jacobsparts/lightgpu)
 The family also includes [nafnet-rs](https://github.com/jacobsparts/nafnet-rs),
 [locate-anything-rs](https://github.com/jacobsparts/locate-anything-rs),
 [realesrgan-rs](https://github.com/jacobsparts/realesrgan-rs),
-[lama-inpaint-rs](https://github.com/jacobsparts/lama-inpaint-rs) and
-[maxim-rs](https://github.com/jacobsparts/maxim-rs); they share the
+[lama-inpaint-rs](https://github.com/jacobsparts/lama-inpaint-rs),
+[maxim-rs](https://github.com/jacobsparts/maxim-rs),
+[scunet-rs](https://github.com/jacobsparts/scunet-rs) and
+[ifan-rs](https://github.com/jacobsparts/ifan-rs); they share the
 [lightgpu toolkit](https://github.com/jacobsparts/lightgpu).
 [pixeldeck](https://github.com/jacobsparts/pixeldeck) is a local web app for
 cleaning up product photos that drives all of these engines.
@@ -129,16 +131,18 @@ cargo build --release --no-default-features  # CPU-only, 1.1 MiB, no nvcc
 Set `NVCC=/path/to/nvcc` if it is not on `PATH`. The GPU build compiles the
 kernels this engine actually calls, in **two modules**:
 
-* `cuda/swin.cu` — this project's own kernel family: the 19 vision-model ops
-  (Swin window assembly, token shuffles, deformable convolution, resampling and
-  the token-layout attention). They used to sit in the shared toolkit, where
-  they shared a file with an LLM/q8 kernel set they have almost nothing in
-  common with.
-* the shared [`lightgpu`](https://github.com/jacobsparts/lightgpu) toolkit's `cuda/kernels.cu` — the 14
-  generic ops (elementwise, `layer_norm`, the NCHW channel affine and mean, and
-  the convolution and linear family). The affine and the mean came back here:
-  this project had defined them, while the toolkit's own op table advertised
-  them as toolkit API.
+* `cuda/swin.cu` — this project's own kernel family: the 17 vision-model ops
+  (token shuffles, deformable convolution, resampling and the token-layout
+  attention). They used to sit in the shared toolkit, where they shared a file
+  with an LLM/q8 kernel set they have almost nothing in common with.
+* the shared [`lightgpu`](https://github.com/jacobsparts/lightgpu) toolkit's `cuda/kernels.cu` — the 16
+  generic ops (elementwise, `layer_norm`, the NCHW channel affine and mean, the
+  convolution and linear family, and the Swin window pair). The affine, the mean
+  and the window pair all came from here: this project had defined them, and the
+  toolkit's form of the window pair carries a cyclic shift and a chunk base that
+  the local copy did not. That is the direction this split is supposed to move -
+  an op several engines need belongs in the toolkit, and the private copy is
+  deleted rather than kept as a second spelling of the same index map.
 
 `build.rs` compiles each file to its own fatbin with its own `--entries` list
 (`lightgpu_build::fatbin_modules`) for sm_61, sm_75 and sm_80 plus PTX
@@ -216,10 +220,13 @@ The whole network — Swin-Transformer backbone, the full BiRefNet decoder
 including deformable convolutions (DCNv2) and the shifted-window attention
 with its relative-position tables — is reimplemented from the original
 PyTorch code in Rust. The CUDA kernels are split by ownership: the
-vision-model family this engine needs (and no other engine does) lives here in
-`cuda/swin.cu`, while the generic ops come from the shared `lightgpu` toolkit -
-the toolkit is for what several projects share, not for whatever one of them
-happens to need. `src/cuda.rs` is a thin layer that loads both modules,
+vision-model family that only this engine needs - the token shuffles, the
+deformable convolution, the resampling and the token-layout attention - lives
+here in `cuda/swin.cu`, while the generic ops come from the shared `lightgpu`
+toolkit. The toolkit is for what several projects share, not for whatever one of
+them happens to need, and the boundary moves both ways: the window pair started
+here and is a toolkit kernel now, because three engines had written the same
+index map. `src/cuda.rs` is a thin layer that loads both modules,
 allocates device buffers and marshals launch arguments.
 Weights are the 754 tensors from the official checkpoint, `mmap`ed and used in
 place. There are no neural-network frameworks anywhere in the dependency tree;
