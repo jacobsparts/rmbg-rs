@@ -340,42 +340,12 @@ extern "C" __global__ void lg_repack_attn(
 // 6. Window assembly and token shuffles (Swin)
 // ===========================================================================
 
-// Shared index computation for the window gather/scatter pair.
-LA_DEVI void la_window_index(long gid, int hp, int wp, int win, int c, long *src, long *dst) {
-    const int ch = (int)(gid % c);
-    long t = gid / c;
-    const int j = (int)(t % win);
-    t /= win;
-    const int i = (int)(t % win);
-    t /= win;
-    const int wx = (int)(t % (wp / win));
-    const int wy = (int)(t / (wp / win));
-    const int widx = wy * (wp / win) + wx;
-    *src = (long)ch * hp * wp + (long)(wy * win + i) * wp + (wx * win + j);
-    *dst = ((long)widx * win * win + (long)i * win + j) * c + ch;
-}
-
-extern "C" __global__ void lg_window_gather(
-    const float *__restrict__ padded, float *__restrict__ out,
-    int hp, int wp, int win, int c)
-{
-    const long gid = (long)blockIdx.x * blockDim.x + threadIdx.x;
-    if (gid >= (long)c * hp * wp) return;
-    long s, d;
-    la_window_index(gid, hp, wp, win, c, &s, &d);
-    out[d] = padded[s];
-}
-
-extern "C" __global__ void lg_window_scatter(
-    const float *__restrict__ wins, float *__restrict__ padded,
-    int hp, int wp, int win, int c)
-{
-    const long gid = (long)blockIdx.x * blockDim.x + threadIdx.x;
-    if (gid >= (long)c * hp * wp) return;
-    long s, d;
-    la_window_index(gid, hp, wp, win, c, &s, &d);
-    padded[s] = wins[d];
-}
+// THE WINDOW GATHER/SCATTER PAIR IS GONE FROM THIS FILE. It is a toolkit op now
+// (`lg_window_gather` / `lg_window_scatter`), which is where a Swin index map
+// belongs: three engines had written out the same map. The toolkit's version
+// takes two more arguments than the one that lived here - a cyclic `shift`, which
+// this model does not use and passes 0, and a chunk base `w0`, also 0 here - and
+// with both zero it is the same permutation this file's copy produced.
 
 // pad: (C,1,h*w) -> (C,1,hp*wp) with the (h,w) block placed at the origin.
 extern "C" __global__ void lg_pad_tokens(

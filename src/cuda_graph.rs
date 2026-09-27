@@ -1172,12 +1172,25 @@ impl CudaModel {
     ) -> Result<(), String> {
         
         let mut aa = Args::new();
+        let nww = wp / win;
+        let nw = (hp / win) * nww;
+        let n = win * win;
+        // The toolkit's argument list: the plane, the windows, the window count,
+        // the tokens per window, the window columns, the window edge, the plane,
+        // the channels - then the cyclic shift and the chunk base, neither of which
+        // this model uses. The count `nw` is passed rather than derived, because
+        // the kernel cannot know the plane was padded to a multiple of the window.
         aa.ptr(padded.buf.ptr);
         aa.ptr(out.buf.ptr);
+        aa.i32(nw as i32);
+        aa.i32(n as i32);
+        aa.i32(nww as i32);
+        aa.i32(win as i32);
         aa.i32(hp as i32);
         aa.i32(wp as i32);
-        aa.i32(win as i32);
         aa.i32(padded.c as i32);
+        aa.i32(0);
+        aa.i32(0);
         aa.launch(self.module_of("lg_window_gather")?, "lg_window_gather", Launch::new((grid_for(padded.len()), 1, 1), (THREADS, 1, 1)))
     }
 
@@ -1192,12 +1205,20 @@ impl CudaModel {
     ) -> Result<(), String> {
         
         let mut aa = Args::new();
+        let nww = wp / win;
+        let nw = (hp / win) * nww;
+        let n = win * win;
         aa.ptr(wins.buf.ptr);
         aa.ptr(padded.buf.ptr);
+        aa.i32(nw as i32);
+        aa.i32(n as i32);
+        aa.i32(nww as i32);
+        aa.i32(win as i32);
         aa.i32(hp as i32);
         aa.i32(wp as i32);
-        aa.i32(win as i32);
         aa.i32(padded.c as i32);
+        aa.i32(0);
+        aa.i32(0);
         aa.launch(self.module_of("lg_window_scatter")?, "lg_window_scatter", Launch::new((grid_for(wins.len()), 1, 1), (THREADS, 1, 1)))
     }
 }

@@ -34,6 +34,11 @@ const TOOLKIT_KERNELS: &[&str] = &[
     "lg_conv4x4s4",
     "lg_linear_1x1",
     "lg_linear",
+    // Window assembly. These two were defined in cuda/swin.cu and are a toolkit
+    // op now: the same index map appeared in three engines, and the toolkit's
+    // form carries a cyclic shift and a chunk base that the local copy did not.
+    "lg_window_gather",
+    "lg_window_scatter",
 ];
 
 /// This project's own kernel family, in `cuda/swin.cu`.
@@ -52,8 +57,6 @@ const SWIN_KERNELS: &[&str] = &[
     "lg_add_crop_tokens",
     "lg_patch_merge",
     "lg_tile_patches",
-    "lg_window_gather",
-    "lg_window_scatter",
     // pool / resize / convolution
     "lg_resize_bilinear",
     "lg_deform_conv",
