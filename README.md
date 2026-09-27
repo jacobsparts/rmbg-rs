@@ -2,15 +2,19 @@
 
 One of the [lightgpu inference engines](https://github.com/jacobsparts/lightgpu).
 The family also includes [nafnet-rs](https://github.com/jacobsparts/nafnet-rs),
-[locate-anything-rs](https://github.com/jacobsparts/locate-anything-rs),
+[maxim-rs](https://github.com/jacobsparts/maxim-rs),
+[scunet-rs](https://github.com/jacobsparts/scunet-rs),
+[swin2sr-rs](https://github.com/jacobsparts/swin2sr-rs),
+[ifan-rs](https://github.com/jacobsparts/ifan-rs),
 [realesrgan-rs](https://github.com/jacobsparts/realesrgan-rs),
 [lama-inpaint-rs](https://github.com/jacobsparts/lama-inpaint-rs),
-[maxim-rs](https://github.com/jacobsparts/maxim-rs),
-[scunet-rs](https://github.com/jacobsparts/scunet-rs) and
-[ifan-rs](https://github.com/jacobsparts/ifan-rs); they share the
-[lightgpu toolkit](https://github.com/jacobsparts/lightgpu).
+[locate-anything-rs](https://github.com/jacobsparts/locate-anything-rs) and
+[nightenh-rs](https://github.com/jacobsparts/nightenh-rs), all built on the
+[lightgpu toolkit](https://github.com/jacobsparts/lightgpu);
+[adaptive-enhance](https://github.com/jacobsparts/adaptive-enhance) is a CPU-only
+toolset that does not use it, and
 [pixeldeck](https://github.com/jacobsparts/pixeldeck) is a local web app for
-cleaning up product photos that drives all of these engines.
+cleaning up product photos that drives them all.
 
 A single-binary inference engine for [RMBG-2.0](https://huggingface.co/briaai/RMBG-2.0)
 (BiRefNet) background removal, written in Rust. Feed it a PNG, get back the
