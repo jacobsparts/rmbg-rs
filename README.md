@@ -39,6 +39,21 @@ Prebuilt binaries are attached to the GitHub releases:
 | `rmbg-linux-x86_64` | CPU + CUDA | any x86-64 Linux with glibc ≥ 2.34 (Ubuntu 22.04+, Debian 12+, RHEL 9+); GPU path needs an NVIDIA driver |
 | `rmbg-linux-x86_64-cpu-only` | CPU only | same, but nothing NVIDIA-related is ever touched |
 
+Both binaries run on the CPU; they differ only in whether CUDA support is
+compiled in, and a CPU-only build refuses `--device gpu` instead of quietly
+running somewhere else.
+
+```sh
+chmod +x rmbg-linux-x86_64
+./rmbg-linux-x86_64 --weights rmbg-2.0.safetensors -i input.png -o output.png
+```
+
+The `chmod` is not decoration: a download does not carry the executable bit
+through, and a binary that has lost it fails with `Permission denied` before it
+can print anything. The examples in Usage write the program as `rmbg`, which is
+the name `cargo build --release` produces - rename the download to that, or keep
+the full path.
+
 > **Model licence:** RMBG-2.0 is licensed by [BRIA](https://bria.ai) for
 > **non-commercial use only**, for research or evaluation. The checkpoint is
 > not covered by this repository's MIT licence, and it is not distributed here
